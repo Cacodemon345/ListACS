@@ -186,12 +186,15 @@ class Marker(object):
 class Script(Marker):
     executable = True
 
-    def __init__(self, ptr, num, type, argc):
+    def __init__(self, ptr, num, type, argc, isnamed=False, string=''):
         Marker.__init__(self, ptr)
         self.num = num
         self.type = type
         self.argc = argc
         self.flags = 0
+        self.isnamed = isnamed
+        self.string = string
+        
 
     def get_type(self):
         try:
@@ -200,6 +203,9 @@ class Script(Marker):
             return "UNKNOWN"
 
     def getlabel(self):
+        if self.isnamed:
+             return 'script "%s", type = %d (%s), flags = %04x, argc = %d' % \
+                    (self.string.decode('utf-8'), self.type, self.get_type(), self.flags, self.argc)
         return 'script %d, type = %d (%s), flags = %04x, argc = %d' % \
                (self.num, self.type, self.get_type(), self.flags, self.argc)
 
@@ -214,6 +220,9 @@ class Script(Marker):
                 argstr = '%s %s' % (argstr, self.get_type())
             else:
                 argstr = self.get_type()
+        if self.isnamed:
+            return 'script "%s" %s // addr = %d, flags=%04x' % \
+               (self.string.decode('utf-8'), argstr, self.ptr, self.flags)
         return 'script %d %s // addr = %d, flags=%04x' % \
                (self.num, argstr, self.ptr, self.flags)
 
@@ -360,10 +369,16 @@ class Behavior(object):
             chunks = read_chunks(data, chunkofs, datalen, markers)
             estrings = chunks.get(b'STRE')
             ustrings = chunks.get(b'STRL')
+            sstrings = chunks.get(b'SNAM')
 
             if ustrings:
                 strings = read_strings(ustrings[0], 4, 12)
-
+            if sstrings:
+                scriptnames = read_strings(sstrings[0], 0, 4)
+                if strings:
+                    strings = strings + scriptnames
+                  #  for v in scriptnames:
+                    #    markers.append(Marker())
             for i, argcount, localcount, hasreturnval, importnum, ptr in \
                     read_array(chunks.get(b'FUNC'), 'BBBBI'):
                 cfunc = Function(ptr, len(functions), argcount, localcount,
@@ -381,7 +396,11 @@ class Behavior(object):
             else:
                 for i, num, type, argc, addr in \
                         read_array(chunks.get(b'SPTR'), 'HBBI'):
+                    
                     cscript = Script(addr, num, type, argc)
+                    if sstrings and num > 0x7FFF:
+                        cscript.isnamed = True
+                        cscript.string = scriptnames[0xFFFF - num]
                     scriptnum[num] = cscript
                     markers.append(cscript)
 
