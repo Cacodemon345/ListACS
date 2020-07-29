@@ -386,23 +386,19 @@ class Behavior(object):
 
                 functions.append(cfunc)
                 markers.append(cfunc)
-
+            scriptscode = 'HBBI'
             if is_intermediate:
-                for i, num, type, addr, argc in \
-                        read_array(chunks.get(b'SPTR'), 'HHII'):
-                    cscript = Script(addr, num, type, argc)
-                    scriptnum[num] = cscript
-                    markers.append(cscript)
-            else:
-                for i, num, type, argc, addr in \
-                        read_array(chunks.get(b'SPTR'), 'HBBI'):
+                scriptscode = 'HHII'
+            
+            for i, num, type, argc, addr in \
+                    read_array(chunks.get(b'SPTR'), scriptscode):
                     
-                    cscript = Script(addr, num, type, argc)
-                    if sstrings and num > 0x7FFF:
-                        cscript.isnamed = True
-                        cscript.string = scriptnames[0xFFFF - num]
-                    scriptnum[num] = cscript
-                    markers.append(cscript)
+                cscript = Script(addr, num, type, argc)
+                if sstrings and num > 0x7FFF:
+                    cscript.isnamed = True
+                    cscript.string = scriptnames[0xFFFF - num]
+                scriptnum[num] = cscript
+                markers.append(cscript)
 
             mvar_init_data = chunks.get(b'MINI', [None])[0]
             if mvar_init_data:
@@ -714,7 +710,7 @@ class Parser(ScriptIO):
         self.run()
         return tgt
 
-    def getfunc(self, n):
+    def getfunc(self, n):    
         return self.behavior.functions[n]
 
     def getstring(self, n):
